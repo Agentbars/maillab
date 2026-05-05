@@ -16,6 +16,9 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    '/inbox/:path*',
+    '/compose',
+    '/disk/:path*',
     '/api/auth/me',
     '/api/auth/logout',
     '/api/messages/:path*',

@@ -30,7 +30,7 @@ function makeRequest(fields: Record<string, string>, file?: { name: string; byte
   const form = new FormData()
   for (const [k, v] of Object.entries(fields)) form.append(k, v)
   if (file) {
-    form.append('attachment', new File([file.bytes], file.name, { type: 'application/octet-stream' }))
+    form.append('attachment', new File([file.bytes.buffer as ArrayBuffer], file.name, { type: 'application/octet-stream' }))
   }
   return new Request('http://localhost/api/messages', { method: 'POST', body: form })
 }
