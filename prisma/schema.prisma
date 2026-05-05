@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  folders          Folder[]
+  diskFiles        DiskFile[]
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  @@map("users")
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  isRoot    Boolean  @default(false)
+  userId    String
+  parentId  String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Folder?    @relation("FolderChildren", fields: [parentId], references: [id])
+  children Folder[]   @relation("FolderChildren")
+  files    DiskFile[]
+
+  @@map("folders")
+}
+
+model Message {
+  id                  String   @id @default(cuid())
+  fromId              String
+  toId                String
+  fromEmail           String
+  toEmail             String
+  subject             String
+  body                String
+  hasAttachment       Boolean  @default(false)
+  attachmentFilename  String?
+  attachmentSizeBytes Int?
+  storagePath         String?
+  createdAt           DateTime @default(now()) @db.Timestamptz
+
+  sender    User @relation("SentMessages", fields: [fromId], references: [id])
+  recipient User @relation("ReceivedMessages", fields: [toId], references: [id])
+
+  @@map("messages")
+}
+
+model DiskFile {
+  id               String    @id @default(cuid())
+  name             String
+  userId           String
+  folderId         String
+  storagePath      String
+  sizeBytes        Int
+  deletedAt        DateTime? @db.Timestamptz
+  previousFolderId String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder Folder @relation(fields: [folderId], references: [id])
+
+  @@map("disk_files")
+}
