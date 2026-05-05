@@ -27,12 +27,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'password_too_short', field: 'password' }, { status: 400 })
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } })
+  const [existing, passwordHash] = await Promise.all([
+    prisma.user.findUnique({ where: { email } }),
+    bcrypt.hash(password, 12),
+  ])
+
   if (existing) {
     return NextResponse.json({ error: 'email_taken' }, { status: 409 })
   }
 
-  const passwordHash = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({ data: { email, passwordHash } })
 
   await prisma.folder.createMany({
