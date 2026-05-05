@@ -14,3 +14,6 @@ test-results/
 
 .DS_Store
 Thumbs.db
+
+tsconfig.tsbuildinfo
+.claude/
