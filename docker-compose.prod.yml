@@ -1,0 +1,44 @@
+services:
+  app:
+    build: .
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgresql://maillab:${DB_PASSWORD}@db:5432/maillab
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      MAIL_DOMAIN: ${MAIL_DOMAIN}
+      CLEANUP_SECRET: ${CLEANUP_SECRET}
+    volumes:
+      - storage:/app/storage
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.maillab.rule=Host(`maillab.srv1505121.hstgr.cloud`)
+      - traefik.http.routers.maillab.entrypoints=websecure
+      - traefik.http.routers.maillab.tls.certresolver=letsencrypt
+      - traefik.http.services.maillab.loadbalancer.server.port=3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: maillab
+      POSTGRES_USER: maillab
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maillab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:
