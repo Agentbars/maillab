@@ -15,7 +15,7 @@ export async function GET(
   const { id } = await params
 
   const message = await prisma.message.findFirst({
-    where: { id, toEmail: session.user.email },
+    where: { id, OR: [{ toEmail: session.user.email }, { fromEmail: session.user.email }] },
   })
 
   if (!message) {

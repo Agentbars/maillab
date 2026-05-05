@@ -17,12 +17,13 @@ export default withAuth(
 export const config = {
   matcher: [
     '/inbox/:path*',
-    '/compose',
+    '/sent',
     '/disk/:path*',
     '/api/auth/me',
     '/api/auth/logout',
     '/api/messages/:path*',
     '/api/inbox/:path*',
+    '/api/sent/:path*',
     '/api/disk/:path*',
     '/api/internal/:path*',
   ],
