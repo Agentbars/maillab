@@ -40,20 +40,36 @@ function FolderItem({
   node,
   selectedId,
   onSelect,
+  dragOverId,
+  setDragOver,
+  onDrop,
 }: {
   node: FolderNode
   selectedId: string | null
   onSelect: (f: FolderNode) => void
+  dragOverId: string | null
+  setDragOver: (id: string | null) => void
+  onDrop: (folder: FolderNode) => void
 }) {
   const [open, setOpen] = useState(true)
   const hasChildren = node.children.length > 0
+  const isDragOver = dragOverId === node.id
 
   return (
     <li>
       <div
         onClick={() => onSelect(node)}
-        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer select-none transition-colors ${
-          selectedId === node.id
+        onDragOver={e => { e.preventDefault(); setDragOver(node.id) }}
+        onDragLeave={e => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOver(null)
+          }
+        }}
+        onDrop={e => { e.preventDefault(); setDragOver(null); onDrop(node) }}
+        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${
+          isDragOver
+            ? 'bg-blue-100 ring-2 ring-blue-400 ring-inset text-blue-700'
+            : selectedId === node.id
             ? 'bg-blue-50 text-blue-700 font-medium'
             : 'text-gray-700 hover:bg-gray-100'
         }`}
@@ -69,7 +85,15 @@ function FolderItem({
       {open && hasChildren && (
         <ul className="ml-3 mt-0.5 space-y-0.5">
           {node.children.map(child => (
-            <FolderItem key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} />
+            <FolderItem
+              key={child.id}
+              node={child}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              dragOverId={dragOverId}
+              setDragOver={setDragOver}
+              onDrop={onDrop}
+            />
           ))}
         </ul>
       )}
@@ -85,11 +109,12 @@ export default function DiskPage() {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [status, setStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [draggedFile, setDraggedFile] = useState<DiskFile | null>(null)
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
 
   const loadFolders = useCallback(async () => {
     const res = await fetch('/api/disk/folders')
-    const data = (await res.json()) as FolderNode[]
-    setFolders(data)
+    setFolders((await res.json()) as FolderNode[])
   }, [])
 
   const loadFiles = useCallback(async (folderId: string) => {
@@ -172,6 +197,34 @@ export default function DiskPage() {
     window.open(`/api/disk/files/${fileId}/download`, '_blank')
   }
 
+  async function handleDropOnFolder(targetFolder: FolderNode) {
+    if (!draggedFile) return
+    setDraggedFile(null)
+    setStatus(null)
+
+    // No-op: dropping onto the folder already containing the file
+    if (targetFolder.id === selected?.id) return
+
+    // Files in Trash can only be restored (API doesn't allow moving to a specific target)
+    if (draggedFile.deletedAt !== null) {
+      await restore(draggedFile.id)
+      return
+    }
+
+    const res = await fetch(`/api/disk/files/${draggedFile.id}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetFolderId: targetFolder.id }),
+    })
+    if (res.ok) {
+      const isTargetTrash = targetFolder.name === 'Trash' && targetFolder.isRoot
+      setStatus({ type: 'ok', text: isTargetTrash ? 'Moved to Trash.' : `Moved to "${targetFolder.name}".` })
+      if (selected) loadFiles(selected.id)
+    } else {
+      setStatus({ type: 'err', text: 'Failed to move file.' })
+    }
+  }
+
   const isTrash = selected?.name === 'Trash' && selected?.isRoot === true
 
   return (
@@ -181,7 +234,15 @@ export default function DiskPage() {
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 mb-2">Folders</p>
         <ul className="space-y-0.5">
           {folders.map(f => (
-            <FolderItem key={f.id} node={f} selectedId={selected?.id ?? null} onSelect={selectFolder} />
+            <FolderItem
+              key={f.id}
+              node={f}
+              selectedId={selected?.id ?? null}
+              onSelect={selectFolder}
+              dragOverId={dragOverFolderId}
+              setDragOver={setDragOverFolderId}
+              onDrop={handleDropOnFolder}
+            />
           ))}
         </ul>
       </div>
@@ -251,6 +312,13 @@ export default function DiskPage() {
               </p>
             )}
 
+            {/* Drag hint */}
+            {files.length > 0 && !isTrash && (
+              <p className="mb-3 text-xs text-gray-400">
+                Drag files onto a folder in the left panel to move them.
+              </p>
+            )}
+
             {/* File list */}
             {filesLoading ? (
               <p className="text-sm text-gray-500">Loading...</p>
@@ -275,9 +343,16 @@ export default function DiskPage() {
                     {files.map((file, i) => (
                       <tr
                         key={file.id}
-                        className={i < files.length - 1 ? 'border-b border-gray-100' : ''}
+                        draggable
+                        onDragStart={() => setDraggedFile(file)}
+                        onDragEnd={() => { setDraggedFile(null); setDragOverFolderId(null) }}
+                        className={`transition-opacity ${
+                          draggedFile?.id === file.id ? 'opacity-40' : 'opacity-100'
+                        } ${i < files.length - 1 ? 'border-b border-gray-100' : ''}`}
                       >
-                        <td className="px-4 py-3 text-gray-900 font-medium">{file.name}</td>
+                        <td className="px-4 py-3 text-gray-900 font-medium cursor-grab">
+                          {file.name}
+                        </td>
                         <td className="px-4 py-3 text-gray-500">{formatSize(file.sizeBytes)}</td>
                         <td className="px-4 py-3 text-gray-400 text-xs">
                           {formatDate(isTrash ? file.deletedAt! : file.createdAt)}
