@@ -4,9 +4,8 @@ import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 
 const NAV = [
-  { href: '/inbox',   label: 'Inbox'   },
-  { href: '/compose', label: 'Compose' },
-  { href: '/disk',    label: 'Disk'    },
+  { href: '/inbox', label: 'Inbox' },
+  { href: '/disk',  label: 'Disk'  },
 ]
 
 export default function Sidebar() {

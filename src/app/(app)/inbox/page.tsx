@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ComposeModal from '@/components/ComposeModal'
 
 type InboxItem = {
   id: string
@@ -21,6 +22,7 @@ export default function InboxPage() {
   const router = useRouter()
   const [messages, setMessages] = useState<InboxItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCompose, setShowCompose] = useState(false)
 
   useEffect(() => {
     fetch('/api/inbox')
@@ -31,12 +33,21 @@ export default function InboxPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-semibold mb-4">Inbox</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Inbox</h1>
+        <button
+          onClick={() => setShowCompose(true)}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + New mail
+        </button>
+      </div>
+
       {loading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : messages.length === 0 ? (
         <div className="text-center py-16 text-gray-400 text-sm">
-          No messages yet. Send one from Compose.
+          No messages yet.
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -73,6 +84,8 @@ export default function InboxPage() {
           </table>
         </div>
       )}
+
+      {showCompose && <ComposeModal onClose={() => setShowCompose(false)} />}
     </div>
   )
 }
