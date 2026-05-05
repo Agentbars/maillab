@@ -17,6 +17,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const messages = await prisma.message.findMany({
     where: {
       toEmail: session.user.email,
+      deliveredAt: { lte: new Date() },
       ...(sinceDate ? { createdAt: { gt: sinceDate } } : {}),
     },
     orderBy: { createdAt: 'desc' },

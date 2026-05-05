@@ -114,6 +114,27 @@ describe('POST /api/messages', () => {
     })
   })
 
+  it('sets deliveredAt to 2–5 seconds after creation time', async () => {
+    mockGetServerSession.mockResolvedValue(SESSION)
+    mockPrisma.user.findUnique.mockResolvedValue(RECIPIENT)
+
+    vi.useFakeTimers()
+    const now = new Date('2026-03-01T10:00:00Z')
+    vi.setSystemTime(now)
+    mockPrisma.message.create.mockResolvedValue({ id: 'msg-d', createdAt: now })
+
+    await POST(makeRequest({ to: 'bob@maillab.local', subject: 'Delayed', body: '' }))
+
+    const createCall = mockPrisma.message.create.mock.calls[0][0] as { data: Record<string, unknown> }
+    const deliveredAt = createCall.data.deliveredAt as Date
+    expect(deliveredAt).toBeInstanceOf(Date)
+    const delayMs = deliveredAt.getTime() - now.getTime()
+    expect(delayMs).toBeGreaterThanOrEqual(2000)
+    expect(delayMs).toBeLessThanOrEqual(5000)
+
+    vi.useRealTimers()
+  })
+
   it('saves attachment to disk and sets hasAttachment on row', async () => {
     mockGetServerSession.mockResolvedValue(SESSION)
     mockPrisma.user.findUnique.mockResolvedValue(RECIPIENT)

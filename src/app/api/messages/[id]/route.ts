@@ -15,7 +15,13 @@ export async function GET(
   const { id } = await params
 
   const message = await prisma.message.findFirst({
-    where: { id, OR: [{ toEmail: session.user.email }, { fromEmail: session.user.email }] },
+    where: {
+      id,
+      OR: [
+        { fromEmail: session.user.email },
+        { toEmail: session.user.email, deliveredAt: { lte: new Date() } },
+      ],
+    },
   })
 
   if (!message) {

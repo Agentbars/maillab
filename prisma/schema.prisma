@@ -51,6 +51,7 @@ model Message {
   attachmentSizeBytes Int?
   storagePath         String?
   createdAt           DateTime @default(now()) @db.Timestamptz
+  deliveredAt         DateTime @db.Timestamptz
 
   sender    User @relation("SentMessages", fields: [fromId], references: [id])
   recipient User @relation("ReceivedMessages", fields: [toId], references: [id])

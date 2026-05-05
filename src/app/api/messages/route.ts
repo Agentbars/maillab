@@ -49,6 +49,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'recipient_not_found' }, { status: 404 })
   }
 
+  const deliveryDelayMs = Math.floor(Math.random() * 3000) + 2000
+  const deliveredAt = new Date(Date.now() + deliveryDelayMs)
+
   const message = await prisma.message.create({
     data: {
       fromId: session.user.id,
@@ -61,6 +64,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       attachmentFilename: attachment?.name ?? null,
       attachmentSizeBytes: attachment?.size ?? null,
       storagePath: null,
+      deliveredAt,
     },
   })
 

@@ -105,6 +105,24 @@ describe('GET /api/inbox', () => {
     expect(call.where.createdAt?.gt).toBeInstanceOf(Date)
     expect(call.where.createdAt?.gt.toISOString()).toBe('2026-01-01T12:00:00.000Z')
   })
+
+  it('only returns messages whose deliveredAt is in the past', async () => {
+    mockGetServerSession.mockResolvedValue(SESSION)
+    mockPrisma.message.findMany.mockResolvedValue([])
+
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-01T10:00:00Z'))
+
+    await inboxGET(makeInboxRequest())
+
+    const call = mockPrisma.message.findMany.mock.calls[0][0] as {
+      where: { deliveredAt?: { lte: Date } }
+    }
+    expect(call.where.deliveredAt?.lte).toBeInstanceOf(Date)
+    expect(call.where.deliveredAt?.lte.toISOString()).toBe('2026-03-01T10:00:00.000Z')
+
+    vi.useRealTimers()
+  })
 })
 
 describe('GET /api/messages/:id', () => {
