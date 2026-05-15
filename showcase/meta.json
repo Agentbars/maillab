@@ -1,0 +1,9 @@
+{
+  "slug": "maillab",
+  "title": "MailLab",
+  "summary": "Учебная платформа «почта + диск» — предсказуемая мишень, на которой студенты тренируют автотесты.",
+  "status": "production",
+  "stack": ["Next.js 14", "PostgreSQL 16", "Prisma", "NextAuth", "Playwright"],
+  "cover": null,
+  "url": "https://maillab.srv1505121.hstgr.cloud"
+}

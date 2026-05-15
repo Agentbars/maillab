@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>MailLab — витрина проекта</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Martian+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav class="topbar">
+    <a class="back-link" href="../">← Реестр проектов</a>
+    <span class="topbar-tag">/maillab</span>
+  </nav>
+
+  <header class="hero reveal">
+    <p class="hero-kicker">
+      Учебная платформа для QA-автоматизации
+      <span class="status" data-status="production">
+        <span class="status-dot"></span>В проде
+      </span>
+    </p>
+    <h1 class="hero-title">MailLab</h1>
+    <p class="hero-lede">
+      Почта и диск, которые <em>можно тестировать</em> — без капчи, без
+      блокировок, с предсказуемым состоянием.
+    </p>
+    <div class="hero-links">
+      <a class="btn btn--primary" href="https://maillab.srv1505121.hstgr.cloud"
+         target="_blank" rel="noopener">Открыть MailLab ↗</a>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- ============ 01 · Описание и зачем ============ -->
+    <section class="section">
+      <span class="section-num">01</span>
+      <div class="section-head">
+        <h2 class="section-title">Описание и&nbsp;зачем</h2>
+      </div>
+      <div class="section-body">
+        <p>
+          <strong>MailLab</strong> — учебная платформа для студентов, которые
+          осваивают автоматизацию тестирования. Это веб-приложение из двух
+          модулей: <strong>Почта</strong> (написать письмо, отправить, входящие,
+          вложения) и <strong>Диск</strong> (папки, файлы, корзина).
+        </p>
+        <h3>Зачем своя платформа</h3>
+        <p>
+          Чтобы учиться писать автотесты, нужна мишень — сайт, который
+          тестируешь. Настоящие Gmail, Яндекс Почта и прочие для этого не
+          годятся: капча и защита от ботов, запрет на автотесты против прода,
+          непредсказуемые данные. MailLab — <strong>наша</strong> платформа:
+          всегда доступна, без капчи, с понятным состоянием. Можно регистрировать
+          аккаунты, слать письма, наполнять диск — и проверять всё это тестами,
+          ничего не сломав.
+        </p>
+        <h3>Для кого</h3>
+        <ul>
+          <li>Студенты курсов по QA-автоматизации — тренируются на реальных сценариях.</li>
+          <li>Преподаватель — даёт задания вида «напиши тест на регистрацию, отправку письма, корзину диска».</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ 02 · Подход и решения ============ -->
+    <section class="section">
+      <span class="section-num">02</span>
+      <div class="section-head">
+        <h2 class="section-title">Подход и&nbsp;решения</h2>
+      </div>
+      <div class="section-body">
+        <p>
+          Главная идея — приложение специально спроектировано как мишень для
+          тестов. Это видно в трёх решениях.
+        </p>
+
+        <h3>Спецификация вперёд, разработка по TDD</h3>
+        <p>
+          Каждая фича сначала описана в отдельном spec-файле — эндпоинты, тела
+          запросов, коды ответов, граничные случаи. Реализация идёт строго по
+          TDD: сначала падающий тест (Vitest для API, Playwright для UI), потом
+          код. В итоге у MailLab есть и эталонный набор тестов, с которым студент
+          может сверять свои.
+        </p>
+
+        <h3>Предсказуемый API</h3>
+        <p>
+          REST под <code>/api/</code>, JSON, осмысленные статус-коды — никаких
+          редиректов вместо ошибок. Контракты документированы, поэтому платформу
+          одинаково удобно тестировать и через UI, и напрямую по API.
+        </p>
+        <pre><code>POST /api/auth/register
+{ "email": "ivan@maillab.local", "password": "..." }
+
+201 → { id, email }
+409 → { error: "email_taken" }
+400 → { error, field }</code></pre>
+
+        <h3>Самодостаточность — никакой флакающей асинхронности</h3>
+        <ul>
+          <li>Реального SMTP/IMAP нет — почта смоделирована внутри. Письмо самому себе доставляется синхронно: тест отправил — оно сразу во «Входящих».</li>
+          <li>Корзина детерминирована: удалённый файл лежит 48 часов, затем фоновая чистка удаляет его окончательно — поведение легко проверить тестом.</li>
+          <li>Состояние сбрасывается командой — каждый прогон стартует с чистой базы.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ 03 · Технологии и статус ============ -->
+    <section class="section">
+      <span class="section-num">03</span>
+      <div class="section-head">
+        <h2 class="section-title">Технологии и&nbsp;статус</h2>
+      </div>
+      <div class="section-body">
+        <dl class="spec">
+          <div>
+            <dt>Статус</dt>
+            <dd>В проде</dd>
+          </div>
+          <div>
+            <dt>Адрес</dt>
+            <dd>maillab.srv1505121</dd>
+          </div>
+          <div>
+            <dt>Модули</dt>
+            <dd>Почта + Диск</dd>
+          </div>
+          <div>
+            <dt>Тесты</dt>
+            <dd>Vitest + Playwright</dd>
+          </div>
+        </dl>
+        <h3>Стек</h3>
+        <div class="tags">
+          <span class="tag">Next.js 14</span>
+          <span class="tag">TypeScript</span>
+          <span class="tag">React 18</span>
+          <span class="tag">Prisma 5</span>
+          <span class="tag">PostgreSQL 16</span>
+          <span class="tag">NextAuth</span>
+          <span class="tag">Tailwind CSS</span>
+          <span class="tag">Vitest</span>
+          <span class="tag">Playwright</span>
+          <span class="tag">Docker</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 04 · Как пользоваться ============ -->
+    <section class="section">
+      <span class="section-num">04</span>
+      <div class="section-head">
+        <h2 class="section-title">Как&nbsp;пользоваться</h2>
+      </div>
+      <div class="section-body">
+        <p>Студенту нужен только браузер и аккаунт.</p>
+        <ol class="steps">
+          <li>Зарегистрироваться: email вида <code>имя@maillab.local</code> и пароль. Сразу появляется почтовый ящик и Диск с папками.</li>
+          <li>Почта: написать письмо (кому, тема, текст, вложение), отправить, открыть во «Входящих», скачать вложение.</li>
+          <li>Диск: создавать подпапки, перемещать файлы, удалять в Корзину и восстанавливать обратно.</li>
+          <li>Писать автотесты на эти сценарии — через UI (Playwright, Selenium) или напрямую по API.</li>
+        </ol>
+
+        <h3>Интерфейс</h3>
+        <div class="gallery">
+          <figure class="shot">
+            <img src="assets/inbox.png" alt="Входящие письма в MailLab" loading="lazy" />
+            <figcaption>Входящие — список писем</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/compose.png" alt="Окно написания письма" loading="lazy" />
+            <figcaption>Новое письмо — получатель, тема, текст, вложение</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/message.png" alt="Просмотр письма" loading="lazy" />
+            <figcaption>Просмотр письма с темой, телом и вложением</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/disk.png" alt="Модуль Диск" loading="lazy" />
+            <figcaption>Диск — папки, файлы и корзина</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <a href="../">← Все проекты</a>
+    <span class="foot-note">srv1505121.hstgr.cloud</span>
+  </footer>
+</body>
+</html>
