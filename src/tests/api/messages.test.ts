@@ -64,15 +64,28 @@ describe('POST /api/messages', () => {
     expect(json).toMatchObject({ field: 'to' })
   })
 
-  it('returns 400 on too-large attachment (> 5 MB)', async () => {
+  it('returns 400 on too-large attachment (> 50 KB)', async () => {
     mockGetServerSession.mockResolvedValue(SESSION)
     const res = await POST(makeRequest(
       { to: 'bob@maillab.local', subject: 'Hi', body: '' },
-      { name: 'big.bin', bytes: new Uint8Array(6 * 1024 * 1024) },
+      { name: 'big.bin', bytes: new Uint8Array(50 * 1024 + 1) },
     ))
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json).toMatchObject({ field: 'attachment' })
+  })
+
+  it('accepts attachment exactly at 50 KB boundary', async () => {
+    mockGetServerSession.mockResolvedValue(SESSION)
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'recipient-1', email: 'bob@maillab.local' })
+    mockPrisma.message.create.mockResolvedValue({ id: 'msg-1', createdAt: new Date() })
+    mockPrisma.message.update.mockResolvedValue({})
+
+    const res = await POST(makeRequest(
+      { to: 'bob@maillab.local', subject: 'Hi', body: '' },
+      { name: 'edge.bin', bytes: new Uint8Array(50 * 1024) },
+    ))
+    expect(res.status).toBe(201)
   })
 
   it('returns 404 on unknown recipient', async () => {

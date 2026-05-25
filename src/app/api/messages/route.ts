@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 
 const EMAIL_REGEX = /^[a-z0-9._-]+@maillab\.local$/i
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_ATTACHMENT_BYTES = 50 * 1024
 
 export async function POST(request: Request): Promise<NextResponse> {
   const session = await getServerSession(authOptions)
