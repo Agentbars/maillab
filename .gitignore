@@ -11,6 +11,7 @@ storage/
 
 playwright-report/
 test-results/
+.playwright-mcp/
 
 .DS_Store
 Thumbs.db
