@@ -1,5 +1,8 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { simulateUploadProgress } from '@/lib/upload-progress'
+
+const MAX_ATTACHMENT_BYTES = 50 * 1024
 
 interface Props {
   onClose: () => void
@@ -12,7 +15,9 @@ export default function ComposeModal({ onClose }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cancelUploadRef = useRef<(() => void) | null>(null)
 
   const handleClose = useCallback(() => {
     if (!loading) onClose()
@@ -25,6 +30,12 @@ export default function ComposeModal({ onClose }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [handleClose])
+
+  useEffect(() => {
+    return () => {
+      cancelUploadRef.current?.()
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -114,27 +125,66 @@ export default function ComposeModal({ onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 rounded-b-xl gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <input
-                ref={fileRef}
-                type="file"
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
-                className="text-xs text-gray-500 max-w-[180px]"
-              />
-              {file && (
-                <span className="text-xs text-gray-400 flex-shrink-0">
-                  {(file.size / 1024).toFixed(0)} KB
-                </span>
-              )}
+          <div className="flex flex-col gap-2 px-5 py-3 bg-gray-50 rounded-b-xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  disabled={uploadProgress !== null}
+                  onChange={e => {
+                    const picked = e.target.files?.[0] ?? null
+                    cancelUploadRef.current?.()
+                    cancelUploadRef.current = null
+                    setUploadProgress(null)
+                    setFile(null)
+                    if (!picked) return
+                    if (picked.size > MAX_ATTACHMENT_BYTES) {
+                      setStatus({ type: 'err', text: 'Attachment is too large. Max size is 50 KB.' })
+                      if (fileRef.current) fileRef.current.value = ''
+                      return
+                    }
+                    setStatus(null)
+                    setUploadProgress(0)
+                    cancelUploadRef.current = simulateUploadProgress({
+                      onTick: (p) => setUploadProgress(p),
+                      onDone: () => {
+                        setFile(picked)
+                        setUploadProgress(null)
+                        cancelUploadRef.current = null
+                      },
+                    })
+                  }}
+                  className="text-xs text-gray-500 max-w-[180px] disabled:opacity-50"
+                />
+                <span className="text-[11px] text-gray-400 flex-shrink-0">Max 50 KB</span>
+                {file && uploadProgress === null && (
+                  <span className="text-xs text-gray-500 flex-shrink-0">
+                    {file.name} · {(file.size / 1024).toFixed(1)} KB
+                  </span>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={loading || uploadProgress !== null}
+                className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex-shrink-0"
+              >
+                {loading ? 'Sending…' : 'Send'}
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex-shrink-0"
-            >
-              {loading ? 'Sending…' : 'Send'}
-            </button>
+            {uploadProgress !== null && (
+              <div className="flex items-center gap-2" data-testid="upload-progress">
+                <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-[width] duration-100"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <span className="text-[11px] text-gray-500 w-10 text-right tabular-nums">
+                  {uploadProgress}%
+                </span>
+              </div>
+            )}
           </div>
         </form>
 
