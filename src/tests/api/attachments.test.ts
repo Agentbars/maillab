@@ -4,7 +4,7 @@ import path from 'path'
 const mockPrisma = {
   message: { findFirst: vi.fn() },
   folder: { findFirst: vi.fn() },
-  diskFile: { create: vi.fn() },
+  diskFile: { create: vi.fn(), aggregate: vi.fn() },
 }
 vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
 
@@ -105,6 +105,7 @@ describe('POST /api/messages/:id/save-to-disk', () => {
     mockMkdir.mockResolvedValue(undefined)
     mockCopyFile.mockResolvedValue(undefined)
     mockAccess.mockResolvedValue(undefined)
+    mockPrisma.diskFile.aggregate.mockResolvedValue({ _sum: { sizeBytes: 0 } })
   })
 
   it('returns 401 without auth', async () => {
@@ -153,6 +154,38 @@ describe('POST /api/messages/:id/save-to-disk', () => {
     const [src, dest] = mockCopyFile.mock.calls[0] as [string, string]
     expect(src).toContain(path.join('storage', 'messages'))
     expect(dest).toContain(path.join('storage', 'disk'))
+  })
+
+  it('returns 507 storage_full when new file would exceed account quota', async () => {
+    mockGetServerSession.mockResolvedValue(SESSION)
+    mockPrisma.message.findFirst.mockResolvedValue(MSG_WITH_ATTACH)
+    mockPrisma.folder.findFirst.mockResolvedValue(FOLDER)
+    mockAccess.mockRejectedValue(new Error('ENOENT'))
+    // MSG_WITH_ATTACH is 11 bytes; user already has 255_990 bytes → 255_990 + 11 = 256_001 > 256_000
+    mockPrisma.diskFile.aggregate.mockResolvedValue({ _sum: { sizeBytes: 255_990 } })
+    mockPrisma.diskFile.create.mockResolvedValue({ id: 'file-x', name: 'report.txt', folderId: 'folder-1' })
+
+    const res = await saveToDiskPOST(makeSaveRequest('msg-1', { folderId: 'folder-1' }), { params: Promise.resolve({ id: 'msg-1' }) })
+    expect(res.status).toBe(507)
+    const body = await res.json() as Record<string, unknown>
+    expect(body).toMatchObject({ error: 'storage_full' })
+    // Quota number must NOT be leaked in the response
+    expect(JSON.stringify(body)).not.toMatch(/250|256000|0\.25/)
+    expect(mockPrisma.diskFile.create).not.toHaveBeenCalled()
+    expect(mockCopyFile).not.toHaveBeenCalled()
+  })
+
+  it('allows save when total stays exactly at quota boundary', async () => {
+    mockGetServerSession.mockResolvedValue(SESSION)
+    mockPrisma.message.findFirst.mockResolvedValue(MSG_WITH_ATTACH)
+    mockPrisma.folder.findFirst.mockResolvedValue(FOLDER)
+    mockAccess.mockRejectedValue(new Error('ENOENT'))
+    // 255_989 + 11 = 256_000 (exactly the cap)
+    mockPrisma.diskFile.aggregate.mockResolvedValue({ _sum: { sizeBytes: 255_989 } })
+    mockPrisma.diskFile.create.mockResolvedValue({ id: 'file-edge', name: 'report.txt', folderId: 'folder-1' })
+
+    const res = await saveToDiskPOST(makeSaveRequest('msg-1', { folderId: 'folder-1' }), { params: Promise.resolve({ id: 'msg-1' }) })
+    expect(res.status).toBe(201)
   })
 
   it('deduplicates filename on collision', async () => {

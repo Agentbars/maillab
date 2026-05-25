@@ -5,6 +5,8 @@ import path from 'path'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 
+const ACCOUNT_DISK_QUOTA_BYTES = 250 * 1024
+
 async function resolveFilename(dir: string, filename: string): Promise<string> {
   const ext = path.extname(filename)
   const base = path.basename(filename, ext)
@@ -60,6 +62,16 @@ export async function POST(
   })
   if (!folder) {
     return NextResponse.json({ error: 'folder_not_found' }, { status: 404 })
+  }
+
+  const usage = await prisma.diskFile.aggregate({
+    _sum: { sizeBytes: true },
+    where: { userId: session.user.id },
+  })
+  const currentBytes = usage._sum.sizeBytes ?? 0
+  const incomingBytes = message.attachmentSizeBytes ?? 0
+  if (currentBytes + incomingBytes > ACCOUNT_DISK_QUOTA_BYTES) {
+    return NextResponse.json({ error: 'storage_full' }, { status: 507 })
   }
 
   const destDir = path.join('storage', 'disk', session.user.id, folderId)
