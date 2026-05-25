@@ -105,22 +105,73 @@ describe('POST /api/auth/register', () => {
 describe('NextAuth credentials authorize', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('returns null on wrong password', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'uid', email: 'alice@maillab.local', passwordHash: 'hashed' })
     mockBcrypt.compare.mockResolvedValue(false)
 
-    const result = await authorizeCredentials({ email: 'alice@maillab.local', password: 'wrongpassword' })
-    expect(result).toBeNull()
+    const promise = authorizeCredentials({ email: 'alice@maillab.local', password: 'wrongpassword' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(await promise).toBeNull()
   })
 
   it('returns user object on correct credentials', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'uid', email: 'alice@maillab.local', passwordHash: 'hashed' })
     mockBcrypt.compare.mockResolvedValue(true)
 
-    const result = await authorizeCredentials({ email: 'alice@maillab.local', password: 'correctpassword' })
-    expect(result).toMatchObject({ id: 'uid', email: 'alice@maillab.local' })
+    const promise = authorizeCredentials({ email: 'alice@maillab.local', password: 'correctpassword' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(await promise).toMatchObject({ id: 'uid', email: 'alice@maillab.local' })
+  })
+
+  it('waits at least 5 seconds even when user does not exist', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+
+    const promise = authorizeCredentials({ email: 'ghost@maillab.local', password: 'x' })
+    let settled = false
+    promise.then(() => { settled = true })
+
+    await vi.advanceTimersByTimeAsync(4_999)
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await promise).toBeNull()
+  })
+
+  it('waits at least 5 seconds on successful login', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'uid', email: 'alice@maillab.local', passwordHash: 'hashed' })
+    mockBcrypt.compare.mockResolvedValue(true)
+
+    const promise = authorizeCredentials({ email: 'alice@maillab.local', password: 'correctpassword' })
+    let settled = false
+    promise.then(() => { settled = true })
+
+    await vi.advanceTimersByTimeAsync(4_999)
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await promise).toMatchObject({ id: 'uid' })
+  })
+
+  it('resolves within 10 seconds at the upper bound', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.9999999)
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'uid', email: 'alice@maillab.local', passwordHash: 'hashed' })
+    mockBcrypt.compare.mockResolvedValue(true)
+
+    const promise = authorizeCredentials({ email: 'alice@maillab.local', password: 'correctpassword' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(await promise).not.toBeNull()
   })
 })
 

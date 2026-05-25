@@ -6,6 +6,9 @@ import prisma from '@/lib/prisma'
 export async function authorizeCredentials(
   credentials: Record<string, string> | undefined
 ): Promise<{ id: string; email: string } | null> {
+  const loginDelayMs = Math.floor(Math.random() * 5000) + 5000
+  await new Promise((resolve) => setTimeout(resolve, loginDelayMs))
+
   if (!credentials?.email || !credentials?.password) return null
 
   const user = await prisma.user.findUnique({
