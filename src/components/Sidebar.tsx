@@ -17,6 +17,12 @@ const SECTIONS = [
       { href: '/disk', label: 'Disk' },
     ],
   },
+  {
+    label: 'Account',
+    items: [
+      { href: '/profile', label: 'Profile' },
+    ],
+  },
 ]
 
 export default function Sidebar() {

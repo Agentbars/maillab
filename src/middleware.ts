@@ -19,6 +19,7 @@ export const config = {
     '/inbox/:path*',
     '/sent',
     '/disk/:path*',
+    '/profile',
     '/api/auth/me',
     '/api/auth/logout',
     '/api/messages/:path*',
@@ -26,5 +27,6 @@ export const config = {
     '/api/sent/:path*',
     '/api/disk/:path*',
     '/api/internal/:path*',
+    '/api/profile',
   ],
 }
