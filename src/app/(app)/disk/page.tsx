@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { statusToToast, networkErrorToast, type DownloadToast } from '@/lib/download-toast'
 
 type FolderNode = {
   id: string
@@ -111,6 +112,14 @@ export default function DiskPage() {
   const [status, setStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<DiskFile | null>(null)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
+  const [downloadToast, setDownloadToast] = useState<DownloadToast | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const loadFolders = useCallback(async () => {
     const res = await fetch('/api/disk/folders')
@@ -193,8 +202,36 @@ export default function DiskPage() {
     }
   }
 
-  function download(fileId: string) {
-    window.open(`/api/disk/files/${fileId}/download`, '_blank')
+  async function download(fileId: string, fileName: string) {
+    setDownloadToast(null)
+    let res: Response
+    try {
+      res = await fetch(`/api/documents/${fileId}/download`)
+    } catch {
+      showDownloadToast(networkErrorToast())
+      return
+    }
+    if (!res.ok) {
+      showDownloadToast(statusToToast(res.status))
+      return
+    }
+    // Success: turn the body into a blob and trigger an anchor download so
+    // the file lands on disk with the right name even though we used fetch().
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function showDownloadToast(toast: DownloadToast) {
+    setDownloadToast(toast)
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => setDownloadToast(null), 4000)
   }
 
   async function handleDropOnFolder(targetFolder: FolderNode) {
@@ -228,7 +265,29 @@ export default function DiskPage() {
   const isTrash = selected?.name === 'Trash' && selected?.isRoot === true
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
+      {/* Download error toast — DOM contract per specs/09-download-toast.md §4 */}
+      {downloadToast && (
+        <div
+          data-testid="download-error-toast"
+          data-status={downloadToast.dataStatus}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 max-w-sm bg-red-600 text-white text-sm px-4 py-3 rounded-lg shadow-lg"
+        >
+          <span className="message flex-1">{downloadToast.message}</span>
+          <button
+            type="button"
+            className="close text-white/80 hover:text-white text-lg leading-none"
+            aria-label="Close"
+            onClick={() => {
+              if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+              setDownloadToast(null)
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Folder tree */}
       <div className="w-56 flex-shrink-0 bg-white border-r border-gray-200 p-3 overflow-y-auto">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 mb-2">Folders</p>
@@ -369,7 +428,7 @@ export default function DiskPage() {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => download(file.id)}
+                                  onClick={() => download(file.id, file.name)}
                                   className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                   Download
